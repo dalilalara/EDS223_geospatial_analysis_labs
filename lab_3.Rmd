@@ -1,0 +1,141 @@
+---
+title: "Lab Wk3"
+author: "Dalila Lara"
+date: "2022-10-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#loading in packages
+library(sf)
+library(spData)
+library(tmap)
+library(tidyverse)
+library(rmapshaper)
+library(smoothr)
+```
+
+```{r}
+nz
+nz_height
+canterbury <- nz |>
+  filter(Name == "Canterbury")
+
+c_height <- nz_height[canterbury,]
+
+#point with nz_height
+tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(nz_height) +
+  tm_dots(col = "red")
+
+#point for c_height
+tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(c_height) +
+  tm_dots(col = "red")
+
+
+#similar to filtering a data frame, but keeps atributes 
+#like the select function we want the first row and the second column
+#all rows in canterbury and elevation
+outside_height <- nz_height[canterbury, "elevation" , op=st_disjoint]
+
+
+#all points outside of canterberry
+tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(outside_height) +
+  tm_dots(col = 'red')
+
+#
+sel_sgbp <- st_intersects(x = nz_height, y = canterbury)
+#gives T / F 
+sel_logical <-lengths(sel_sgbp) > 0
+#subset
+c_height_2 <- nz_height[sel_logical, ]
+tm_shape(nz) +
+  tm_polygons() +
+  tm_shape(c_height_2) +
+  tm_dots(col = "red")
+```
+
+```{r}
+#syntax with tidy approach
+#same thing as above 
+
+#topoligical verion based on perdicate
+c_height_3 <- nz_height |>
+  st_filter(y = canterbury, .predicate = st_intersects)
+
+tm_shape(nz) + 
+  tm_polygons() +
+  tm_shape(c_height_3) +
+  tm_dots(col = "red")
+
+#change  predicate 
+c_height_4 <- nz_height |>
+  st_filter(y = canterbury, .predicate = st_disjoint)
+
+tm_shape(nz) + 
+  tm_polygons() +
+  tm_shape(c_height_4) +
+  tm_dots(col = "red")
+
+```
+
+### Spatial Joining
+
+```{r}
+#make random points that cover the globe bounty box
+bb <- st_bbox(world)
+
+#random data fram
+random_df <- data.frame(
+  x = runif(n = 10, min = bb[1], max = bb[3]),
+  y = runif(n = 10, min = bb[2], max = bb[4])
+)
+
+#turn into sf object
+random_points <- random_df |>
+  st_as_sf(coords = c("x", "y")) |> st_set_crs("EPSG:4326")
+#set coordinate ref system
+ 
+#now sf objects + data frame
+class(random_points)
+
+#plot
+tm_shape(world) +
+  tm_fill() +
+  tm_shape(random_points) +
+  tm_dots(col = "red")
+
+#joint the two data sets to figure which country these points are in
+world_random <- world[random_points, ]
+
+tm_shape(world_random) +
+  tm_fill()
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

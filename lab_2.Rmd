@@ -1,0 +1,201 @@
+---
+title: "Lab 2 Week 2"
+author: "Dalila Lara"
+date: "2022-10-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#loading packages 
+#librarysf makes things 3-d 
+library(sf)
+library(spData)
+library(tmap)
+library(dplyr)
+```
+
+# Making a region point w/st
+
+```{r}
+#making a sf point for London
+          #st (spatial temporal)
+lnd_poin <- st_point(c(0.1,51.5))
+
+#makes point as geom with point association and crs 
+          #crs coordinate reference system 
+lnd_geom <- st_sfc(lnd_poin, crs = 4236)
+
+#data frame
+lnd_attrib <- data.frame(
+  name = "London",
+  temperature = 25,
+  data = as.Date('2022-10-05')
+)
+```
+
+# Make sf object with all pieces
+
+```{r}
+lnd_sf <- st_sf(lnd_attrib, geometry = lnd_geom)
+lnd_sf
+
+#class 
+class(lnd_sf)
+```
+
+# Working with an exsisting sf object
+
+```{r}
+#exploring world object
+class(world)
+dim(world)
+nrow(world)
+ncol(world)
+head(world)
+#each row made up of multiple multi-polygons 
+
+summary(world$lifeExp)
+
+
+#turn world into a data frame by removing geometry (sf) 
+#would want to get rid of to slow down processing 
+class(world)
+world_df <- st_drop_geometry(world)
+class(world_df)
+
+#can you mutate world nope it does not work *******
+test <- world |>
+  select(-geom)
+
+colnames(test)
+class(test)
+```
+
+# Select function in df
+
+```{r}
+#can keep any info + the geom information (big list of coordinate points along the polygons)
+world |>
+  select(name_long, pop)
+
+#remove columns 
+world |>
+  select(-subregion, -area_km2)
+
+#rename
+world |>
+  select(name = name_long, population = pop)
+```
+
+# Filter with df (conditions for rows)
+
+```{r}
+world1 <- world |>
+  filter(area_km2 < 10000)
+
+summary(world1$area_km2)
+
+world2 <- world |>
+  filter(lifeExp >=80)
+
+nrow(world2)
+```
+
+# Piping + chaining functions together
+
+**with condition statements**
+
+```{r}
+#country in Asia with highest life expectanct
+world |>
+  filter(continent == "Asia") |>
+  select(name_long, continent, lifeExp) |>
+  slice_max(lifeExp)
+```
+
+\*\* Now we can aggregate things with attributes \*\* \### Mutate function + filter
+
+```{r}
+names(world)
+continets <- world |>
+  group_by(continent) |>
+  summarise(population = sum(pop, na.rm = TRUE))
+
+#what did it do to the geom
+tm_shape(continets) +
+  tm_polygons(col = "population",
+              style = "cont")
+
+#adding more 
+#n() counts the number of rows in each per grouping
+world |>
+  group_by(continent) |>
+  summarise(population = sum(pop, na.rm = TRUE),
+            area_km2 = sum(area_km2, na.rm = TRUE),
+            n_countries = n()) |>
+  #figuring out population density
+  #mutate function adds column
+            mutate(density = round(population/area_km2)) |>
+  #slice max with 3 highest density
+            slice_max(density, n = 3) |>
+  #rank with the number of countires or switch order with desc function
+            arrange(desc(n_countries))
+  
+```
+
+# Joins
+
+Combining data sets with one common attribute
+
+```{r}
+#combine coffee data + world data
+head(coffee_data)
+nrow(coffee_data)
+```
+
+**Left Join**
+
+```{r}
+#left join take first variable you give it and combing the one on the right to the left 
+world_coffee <- left_join(world, coffee_data, by = "name_long")
+names(world_coffee)
+
+tm_shape(world_coffee) +
+  tm_polygons(col = "coffee_production_2016")
+```
+
+**Inner Join**
+```{r}
+#Inner Join only keeps rows that are between both data sets
+
+#lost rows with inner join
+world_coffee_inner <- inner_join(world, coffee_data)
+nrow(world)
+nrow(coffee_data)
+nrow(world_coffee_inner)
+
+#setdif check for things that are missing 
+#coffee data 
+setdiff(coffee_data$name_long, world$name_long)
+
+#looking for drc in world data 
+#world data 
+drc <- stringr::str_subset(world$name_long, "Congo")
+
+
+#update coffee data to get join to work
+coffee_data$name_long[grepl("Congo,", coffee_data$name_long)] <- "Democratic Republic of the Congo"
+
+#try inner join again and test 
+world_coffee_inner_2 <- inner_join(world, coffee_data, by = "name_long")
+nrow(world_coffee_inner_2)
+
+tm_shape(world_coffee_inner_2) +
+  tm_polygons(col = "coffee_production_2017") +
+  tm_layout(legend.outside = TRUE)
+```
+
